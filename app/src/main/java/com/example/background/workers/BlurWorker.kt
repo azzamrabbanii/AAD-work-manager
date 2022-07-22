@@ -16,6 +16,7 @@ import com.example.background.R
 import java.time.format.ResolverStyle
 
 class BlurWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
+
     override fun doWork(): Result {
         val appContext = applicationContext
 
@@ -23,10 +24,9 @@ class BlurWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
 
         makeStatusNotification("Blurring Image", appContext)
 
+        sleep()
+
         return try {
-//            val picture = BitmapFactory.decodeResource(
-//                appContext.resources,
-//                R.drawable.android_cupcake)
 
             if (TextUtils.isEmpty(resourcesUri)) {
                 Log.e(TAG, "Invalid input uri")
@@ -46,12 +46,8 @@ class BlurWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
             val outputData = workDataOf(KEY_IMAGE_URI to outputUri.toString())
 
             Result.success(outputData)
-
-            makeStatusNotification("Output is $outputUri", appContext)
-
-            Result.success()
         } catch (throwable: Throwable) {
-            Log.e(TAG, "Error applying Blur")
+           throwable.printStackTrace()
             Result.failure()
         }
 

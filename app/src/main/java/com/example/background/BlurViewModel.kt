@@ -20,13 +20,13 @@ import android.app.Application
 import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.work.Data
-import androidx.work.OneTimeWorkRequest
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
+import androidx.work.*
 import com.example.background.workers.BlurWorker
+import com.example.background.workers.CleanUpWorker
+import com.example.background.workers.SaveImageToFileWorker
 
 
 class BlurViewModel(application: Application) : ViewModel() {
@@ -52,11 +52,30 @@ class BlurViewModel(application: Application) : ViewModel() {
     }
 
     internal fun applyBlur(blurLevel: Int) {
+
+     var continuation = workManager
+            .beginUniqueWork(
+                IMAGE_MANIPULATION_WORK_NAME,
+                ExistingWorkPolicy.REPLACE,
+                OneTimeWorkRequest.from(CleanUpWorker::class.java)
+            )
+
     val blurRequest = OneTimeWorkRequestBuilder<BlurWorker>()
         .setInputData(createInputDataForUri())
         .build()
+        continuation = continuation.then(blurRequest)
 
-        workManager.enqueue(blurRequest)
+        val constraints = Constraints.Builder()
+            .setRequiresCharging(true)
+            .build()
+
+        val save = OneTimeWorkRequestBuilder<SaveImageToFileWorker>()
+            .setConstraints(constraints)
+            .addTag(TAG_OUTPUT)
+            .build()
+
+        continuation = continuation.then(save)
+        continuation.enqueue()
     }
 
     private fun uriOrNull(uriString: String?): Uri? {
@@ -93,5 +112,16 @@ class BlurViewModel(application: Application) : ViewModel() {
                 throw IllegalArgumentException("Unknown ViewModel class")
             }
         }
+    }
+
+    internal val outPutWorkInfos: LiveData<List<WorkInfo>>
+
+    init {
+        imageUri = getImageUri(application.applicationContext)
+        outPutWorkInfos = workManager.getWorkInfosByTagLiveData(TAG_OUTPUT)
+    }
+
+    internal fun cancelWork(){
+        workManager.cancelUniqueWork(IMAGE_MANIPULATION_WORK_NAME)
     }
 }
